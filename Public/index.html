@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<title>Brother PT-9700PC</title>
+<link rel="icon" href="/printer.ico">
+<style>
+html,body{margin:0;padding:0;background:#f1f1f1;font-family:"Segoe UI",Arial,sans-serif;font-size:13px;color:#222;overflow:hidden}
+.app{box-sizing:border-box;width:742px;height:445px;padding:10px 9px 8px}
+.label{display:block;margin-bottom:7px}.top{display:flex;align-items:center;gap:10px;height:31px}
+#txtLabel{box-sizing:border-box;height:30px;flex:1;border:1px solid #bdbdbd;background:#fff;padding:4px 6px;font-size:13px}
+button{height:31px;border:1px solid #c7c7c7;border-radius:4px;background:linear-gradient(#fff,#f2f2f2);padding:0 15px;font:13px "Segoe UI",Arial;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+.list{box-sizing:border-box;width:100%;height:293px;margin-top:8px;border:1px solid #a9a9a9;background:#fff;padding:2px;font:13px "Segoe UI",Arial;outline:none}
+.bottom{display:flex;align-items:center;height:43px;gap:15px;margin-top:7px}.copies{display:flex;align-items:center;gap:7px;margin-left:24px}
+#copies{width:48px;height:29px;box-sizing:border-box;border:1px solid #bdbdbd;padding-left:7px}
+.status{flex:1;text-align:right;color:#666;font-size:11px;padding-right:3px}
+.notice{margin-top:8px;color:#666;font-size:11px}
+#printerName{color:#888;font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <span class="label">Tekst på etikett:</span>
+  <div class="top">
+    <input id="txtLabel" type="text">
+    <button onclick="add()">Legg til</button>
+    <button onclick="removeSelected()">Fjern</button>
+  </div>
+  <select id="labelList" class="list" size="10"></select>
+  <div class="bottom">
+    <button id="btnPrint" onclick="previewPrint()">Skriv Ut</button>
+    <button onclick="clearList()">Tøm liste</button>
+    <div class="copies"><span>Kopier:</span><input id="copies" type="number" min="1" max="999" value="1"></div>
+    <span id="printerName"></span>
+    <div id="status" class="status"></div>
+  </div>
+</div>
+<script>
+function add(){
+  const input=document.getElementById('txtLabel');
+  const s=input.value;
+  if(!s.trim()) return;
+  const o=document.createElement('option'); o.text=s; o.value=s;
+  document.getElementById('labelList').add(o);
+  input.value=''; input.focus(); update();
+}
+function removeSelected(){
+  const lb=document.getElementById('labelList');
+  [...lb.options].reverse().forEach((o,i)=>{});
+  for(let i=lb.options.length-1;i>=0;i--) if(lb.options[i].selected) lb.remove(i);
+  update();
+}
+function clearList(){document.getElementById('labelList').innerHTML='';update();}
+function update(){
+  const n=document.getElementById('labelList').options.length;
+  document.getElementById('status').textContent=n?`${n} etikett${n===1?'':'er'} i listen`:'';
+}
+function previewPrint(){
+  const lb=document.getElementById('labelList');
+  const labels=[...lb.options].map(o=>o.value);
+  if(labels.length===0){
+    document.getElementById('status').textContent='Ingen etiketter i listen';
+    return;
+  }
+  const copies=parseInt(document.getElementById('copies').value,10)||1;
+  const btn=document.getElementById('btnPrint');
+  btn.disabled=true;
+  document.getElementById('status').textContent='Skriver ut...';
+
+  fetch('/api/print',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({labels,copies})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.success){
+      document.getElementById('status').textContent=`Skrevet ut ${labels.length} etikett${labels.length===1?'':'er'}`;
+    }else{
+      document.getElementById('status').textContent='Feil: '+(data.error||'ukjent feil');
+    }
+  })
+  .catch(err=>{
+    document.getElementById('status').textContent='Feil: '+err.message;
+  })
+  .finally(()=>{ btn.disabled=false; });
+}
+document.getElementById('txtLabel').addEventListener('keydown',e=>{if(e.key==='Enter')add();});
+
+fetch('/api/config').then(r=>r.json()).then(cfg=>{
+  document.getElementById('printerName').textContent=cfg.printerName?`Skriver: ${cfg.printerName}`:'';
+}).catch(()=>{});
+</script>
+</body>
+</html>

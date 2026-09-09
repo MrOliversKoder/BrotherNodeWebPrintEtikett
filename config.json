@@ -1,0 +1,6 @@
+{
+  "printerName": "Brother PT-9700PC",
+  "templatePath": "Public/Templet.lbx",
+  "objectName": "Text1",
+  "port": 3000
+}
